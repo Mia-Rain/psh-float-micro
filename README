@@ -1,0 +1,12 @@
+---
+# Purpose
+-- The purpose of this script and the pain I have endured creating it are to make bc redundant within POSIX sh
+-- The one thing bc can do that POSIX sh arithmetic cannot is float math
+# Usage
+-- $ ./floatm 'NUM.1 + NUM.2'
+-- psh-float only supports the basic operations; psh-float is a POC and I have no plans to make it a full-fledged library
+# Shellcheck
+-- Current shellcheck warnings are intended
+# s()
+-- The s() function used in ./floatm comes from shappet/bin/seq, and is a pure sh micro implementation of seq
+---
