@@ -1,0 +1,33 @@
+#!/bin/sh
+# math is a fuck
+set -f; IFS=" "; set -- ${1}; unset IFS; set +f
+# $1 is num 1
+# $2 is opt
+# $3 is num 2
+s() { # s() is puresh seq 
+  n=$(($1)); while [ "$n" -le $(($2)) ]; do
+    echo "$n"; : $((n+=1))
+  done
+}
+conbin() { # convert $1 to binary and return
+  b=""; r=$1; until [ "$r" -eq 0 ]; do
+    b="$((r%2))$b"; r="$((r/2))"
+  done; echo "$b"
+}
+condec() { # convert $1 to decimal and return
+  de="2"; d=""; n=0; r=$1; while [ "$r" ]; do
+    cd="" # cd is current decimal
+    next="${r#?}"; ci="${r%$next}" # ci is current int
+    case "$n" in
+      0) cd="$ci";; # cd = ci^0 (ci*1(ci))
+      1) cd="$(((ci*2)))";;
+      *)
+        IFS=""; for i in $(s 1 ${n}); do
+          de=$((de*2))
+        done # de is 2^$n
+        cd="$(((ci*de)))"
+    esac
+    d="$((d+cd))"
+    r=$next; : $((n+=1))
+  done; echo "$d"
+}
