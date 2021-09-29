@@ -1,9 +1,7 @@
 #!/bin/sh
 # math is a fuck
-set -f; IFS=" "; set -- ${1}; unset IFS; set +f
-# $1 is num 1
-# $2 is opt
-# $3 is num 2
+#set -f; IFS=" "; set -- ${1}; unset IFS; set +f
+
 s() { # s() is puresh seq 
   n=$(($1)); while [ "$n" -le $(($2)) ]; do
     echo "$n"; : $((n+=1))
@@ -14,10 +12,10 @@ conbin() { # convert $1 to binary and return
     b="$((r%2))$b"; r="$((r/2))"
   done; echo "$b"
 }
-condec() { # convert $1 to decimal and return
+condec() { # convert $1 to base10 and return
   de="2"; d=""; n=0; r=$1; while [ "$r" ]; do
-    cd="" # cd is current decimal
-    next="${r#?}"; ci="${r%$next}" # ci is current int
+    cd="" # cd is current int in conversion
+    next="${r#?}"; ci="${r%$next}" # ci is current int in $1
     case "$n" in
       0) cd="$ci";; # cd = ci^0 (ci*1(ci))
       1) cd="$(((ci*2)))";;
@@ -31,3 +29,64 @@ condec() { # convert $1 to decimal and return
     r=$next; : $((n+=1))
   done; echo "$d"
 }
+conbind() { # convert $1 (decimal part) to binary; 30 bits - extra bits are for extended mantissa - will be force shortened to 23 bits or padded if CC = 100 before length is 23
+  cc=""; p=""; l=${#1}; o=0
+  for i in $(s 1 30); do # $1 is a whole number; due to lack of access to floats we have to pretend $1 is a decimal
+    # $l is length of $1
+    [ -z "$cc" ] && cc="$1"
+    [ ${#cc} -gt ${l} ] && {
+      cc="${cc#?}"; t=${cc#?}; until [ "${cc%$t}" != "0" ]; do
+        cc="${cc#?}"
+      done
+      unset t
+    }
+    cc=$((cc*2))
+    if [ ${#cc} -gt ${l} ]; then 
+      p="${p}1"
+    else
+      p="${p}0"
+    fi
+    [ "$cc" = "100" ] && break
+  done; echo "$p"
+}
+movebin() { # moves the binary point of $1 to left or right based on value of $2; return new num
+  [ "$2" -gt 0 ] && {
+    fn="${1%%.*}${1##*.}" # $fn is $1 without .
+    fc="$fn"; until [ ${#fc} = 1 ]; do
+      fc=${fc%?}
+    done # $fc is first charaecter
+    fn="${fc}.${fn#?}" # yank first charecter from $fn and add "${fc}."
+  } || {
+    fn="${1##*.}"; fc="$fn"; until [ "1${fc%%1*}" = 1 ]; do
+      fc=${fc#?}
+    done; fc="${fc#?}"; fn="1.${fc}"
+  }
+  echo "$fn" # this $fn has been normilized
+}
+conbinF() { # convert $1 to binary with float point (if $1 has .)
+  sbit=1; [ "${1%%.*}" -gt 0 ] && sbit=0 # set sign bit to 0 if > 0; otherwise use 1
+  # shorten $1 to only whole parts; then check if > 0
+  whp="$(conbin ${1%%.*})"; fp="$(conbind ${1##*.})"; whn="${whp:-0}.$fp" # $whn is binary whole number
+  [ "${whn%%.*}" != 0 ] && { # $ad is used to decided which way to shift and is also used for the exponent
+    ad=${whn%%.*}; ad=$((${#ad}-1))
+    fn=$(movebin "$whn" "$ad")
+  } || { # moving to the right is where it becomes complicated
+    twhn="$whn"; twhn=${twhn##*.} # remove 0. from $whn
+    n=0; until [ "1${twhn%%1*}" = 1 ]; do
+      twhn=${twhn#?}; : $((n+=1)) 
+    done; ad="-$n"; unset twhn; fn=$(movebin "$whn" "$ad")
+  }
+  : $((ad+=127)); ad="$(conbin $ad)" # add 127 to exponent to apply bias & convert to binary
+  until [ "${#ad}" -eq 8 ]; do # exponent must be 8 bytes
+    ad="0$ad"
+  done
+  while [ "${#fn}" -gt 25 ]; do
+    fn="${fn%?}"
+  done # force shorten to 23 - 2 extra are 1 and .
+  while [ "${#fn}" -lt 25 ]; do
+    fn="${fn}0"
+  done # pad if too short
+  mant="${fn##*.}"
+  echo "${sbit}${ad}${mant}"
+}
+conbinF $1
