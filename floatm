@@ -15,7 +15,7 @@ conbin() { # convert $1 to binary and return
 condec() { # convert $1 to base10 and return
   de="2"; d=""; n=0; r=$1; while [ "$r" ]; do
     cd="" # cd is current int in conversion
-    next="${r#?}"; ci="${r%$next}" # ci is current int in $1
+    next="${r%?}"; ci="${r#$next}" # ci is current int in $1
     case "$n" in
       0) cd="$ci";; # cd = ci^0 (ci*1(ci))
       1) cd="$(((ci*2)))";;
@@ -30,17 +30,16 @@ condec() { # convert $1 to base10 and return
   done; echo "$d"
 }
 conbind() { # convert $1 (decimal part) to binary; 30 bits - extra bits are for extended mantissa - will be force shortened to 23 bits or padded if CC = 100 before length is 23
-  cc=""; p=""; l=${#1}; o=0
-  for i in $(s 1 30); do # $1 is a whole number; due to lack of access to floats we have to pretend $1 is a decimal
+  cc=""; p=""; l=${#1}
+  for i in $(s 1 23); do # $1 is a whole number; due to lack of access to floats we have to pretend $1 is a decimal
     # $l is length of $1
-    [ -z "$cc" ] && cc="$1"
-    [ ${#cc} -gt ${l} ] && {
+    [ ${#cc} -gt ${l} ] 2>/dev/null && {
       cc="${cc#?}"; t=${cc#?}; until [ "${cc%$t}" != "0" ]; do
         cc="${cc#?}"
       done
       unset t
     }
-    cc=$((cc*2))
+    cc=$((${cc:-$1}*2))
     if [ ${#cc} -gt ${l} ]; then 
       p="${p}1"
     else
@@ -71,9 +70,11 @@ conbinF() { # convert $1 to binary with float point (if $1 has .)
     ad=${whn%%.*}; ad=$((${#ad}-1))
     fn=$(movebin "$whn" "$ad")
   } || { # moving to the right is where it becomes complicated
-    twhn="$whn"; twhn=${twhn##*.} # remove 0. from $whn
-    n=0; until [ "1${twhn%%1*}" = 1 ]; do
-      twhn=${twhn#?}; : $((n+=1)) 
+    n=0; twhn="$whn"; [ "${twhn##*.}" != "$twhn" ] && : $((n+=1)) # increment if removing 0
+    twhn=${twhn##*.} # remove 0. from $whn
+    until [ "1${twhn%%1*}" = 1 ]; do
+      twhn=${twhn#?}; 
+      : $((n+=1))
     done; ad="-$n"; unset twhn; fn=$(movebin "$whn" "$ad")
   }
   : $((ad+=127)); ad="$(conbin $ad)" # add 127 to exponent to apply bias & convert to binary
@@ -87,6 +88,132 @@ conbinF() { # convert $1 to binary with float point (if $1 has .)
     fn="${fn}0"
   done # pad if too short
   mant="${fn##*.}"
-  echo "${sbit}${ad}${mant}"
+  echo "${sbit} ${ad} ${mant}" 
+  # $u is hidden bit
 }
-conbinF $1
+powerindex='50000000000000000000 25000000000000000000 12500000000000000000 06250000000000000000 03125000000000000000 01562500000000000000 00781250000000000000 00390625000000000000 00195312500000000000 00097656250000000000 00048828125000000000 00024414062500000000 00012207031250000000 00006103515625000000 00003051757812500000 00001525878906250000 00000762939453125000 00000381469726562500 00000190734863281250 00000095367431640625 00000047683715820312 00000023841857910156 00000011920928955078 00000005960464477539 00000002980232238769 00000001490116119384 00000000745058059692 00000000372529029846 00000000186264514923 00000000093132257461 00000000046566128730 00000000023283064365 00000000011641532182 00000000005820766091 00000000002910383045 00000000001455191522 00000000000727595761 00000000000363797880 00000000000181898940 00000000000090949470 00000000000045474735 00000000000022737367 00000000000011368683 00000000000005684341 00000000000002842170 00000000000001421085 00000000000000710542 00000000000000355271 00000000000000177635 00000000000000088817 00000000000000044408 00000000000000022204'
+# max value is 0.9999999999999997777 # 22 charecters
+nth() {
+  ex="$1"; IFS=" "; set -- ${powerindex}; unset IFS
+  eval "printf '%s\n' \${$ex}"
+} # yank an item out of the powerindex based on the number of $1
+condecF() { # converts back to decimal from a float
+  IFS=" "; set -- ${1}; sbit="${1}"; ex="${2}"; m="${3}" # step 1
+  ex="$(($(condec $ex)-127))" ## unbias exponent # step 2/3
+  r="$m"; n=1; while [ "$r" ]; do # loop over every character in the mantissa
+  next="${r#?}" ci="${r%$next}"; pl="${#ans}"
+    [ "$ci" -eq 1 ] && dl="${dl+$dl }$(nth ${n})"
+  r="$next"; : $((n+=1))
+  done
+  adddec "${dl}" # step 4 # mantissa is 0.$dl
+  Mex=2; unset IFS; for i in $(s 2 ${ex}); do # step 5 - 1 * 2^$ex + $m *  2^$ex
+    Mex=$((Mex*2))
+  done; [ "$ex" -eq 0 ] && Mex=1 # solve for the value of 2^$ex as $Mex
+  echo "(0.$dl * $Mex) + $Mex"
+}
+nz() { # return a string of 0's with the length of $1
+  for i in $(s 1 $1); do
+    r="${r}0"
+  done; 
+  echo "$r"
+}
+adddec() { # add all decimal points in $1 using math hacks
+  IFS=" "; set -- ${1}; unset IFS dl ad; eval last=$#
+  # add a check here; 
+  # if last item and $n is != 2
+  # then preform op on last number and add it to the final number in $dl
+  # need to do this since 13 (single) is odd where 52 (double) is even
+  n=1; nl=1; for i in "$@"; do
+    ad="${ad+$ad }$i";
+    #echo "- $i | $last | $nl"
+    [ "$nl" -eq "$last" -a ! "$n" -eq 2 ] && {
+      ldl="${dl##* }"; 
+      a="$i"; b="$ldl"; : $((n+=1))
+      export a b
+    }
+    [ "$n" -eq 2 ] && {
+      [ ! "${#a}" -gt 1 ] && a="${ad%% *}"
+      [ ! "${#b}" -gt 1 ] && b="${ad##* }"
+      
+      until [ "${#a}" -eq 11 -a "${#b}" -eq 11 ]; do # force shorten to 11 charecters to prevent issues
+        a="${a%?}"; b="${b%?}"
+      done
+      na=0; until [ "${a#0}" = "$a" ]; do
+        a="${a#0}"; : $((na+=1))
+      done
+      nb=0; until [ "${b#0}" = "$b" ]; do
+        b="${b#0}"; : $((nb+=1))
+      done
+        if [ "$nb" -gt 0 -a "$na" -gt 0 ]; then
+          [ "$na" -lt "$nb" ] && {
+            n0M="$(nz $na)"
+          } || n0M="$(nz $nb)"
+        fi
+        n0a="$(nz $na)"
+        n0b="$(nz $nb)"
+      {
+        if [ "$((a+b))" -eq 0 ] || [ "$((a+b))" = "$b" ]; then
+          a="${a%0}"; b="${b%0}"
+          n0T="0"
+        fi
+        [ "$((a+b))" -eq $b ] 2>/dev/null; if [ "$?" -eq 2 ]; then
+          a="${a%0}"; b="${b%0}"
+        fi
+        echo "$a+$b | $((a+b))"
+        dl="${dl+$dl }$n0M$((a+b))$n0T"
+      }
+      n=0; unset ad n0M a b na nb n0a n0b n0T
+    }
+    : $((n+=1)); : $((nl+=1))
+  done; unset ad; IFS=" "; until [ ${#dl} -le 21 ]; do
+    adddec "$dl"
+  done; export dl
+  echo "$dl"
+}
+shiftF() { #shift mantissa $2 places
+  n=0; m="$1"
+  [ "$2" -ge 1 ] && {
+    m=${m%?}; m="$u$m"; u=0; : $((n+=1))
+  }
+  until [ "$n" -eq "$2" ]; do
+    m="${m%?}"; m="0$m"
+    : $((n+=1))
+  done
+  echo "$m"
+}
+fadds() { # float add single 
+  as="${1%% *}" # $NUMs is sign bit
+  bs="${2%% *}"
+  ae="${1% *}"; ae="${ae#* }" # $NUMe is exponent
+  be="${2% *}"; be="${be#* }"
+  am="${1##* }" # $NUMm is mantissa
+  bm="${2##* }"
+  [ "${o1%%.*}" -gt "${o2%%.*}" ] && {
+    lg="1"
+  } || { lg="2"; } # determine which is larger
+  case "$lg" in
+    1) # NUM=1
+    ade=$(condec $ae); bde=$(condec $be)
+    sn="$((ade-bde))"
+    bnm=$(shiftF "$bm" "$sn")
+    bne=$(conbin $(($(condec $be)+$sn)));;
+    #echo "$bne $bnm";;
+    2)
+    ade=$(condec $ae); bde=$(condec $be)
+    sn="$((bde-ade))"
+    anm=$(shiftF "$am" "$sn")
+    ane=$(conbin $(($(condec $ae)+$sn)))
+    #echo "$ane $anm"
+  esac
+  
+}
+u="1" # hidden bit is always 1 unless otherwise stated
+#[ "$2" ] && {
+#  o1="$1"; o2="$2"
+#  a1="$(conbinF $1)"; a2="$(conbinF $2)"; fadds "$a1" "$a2"
+#} || 
+#conbinF "$1"
+#condecF "$@"
+#adddec "$@"
+#nth "$@"
+# don't do anything yet
