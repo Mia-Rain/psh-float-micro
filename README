@@ -2,12 +2,25 @@
 # Purpose
 -- The purpose of this script and the pain I have endured creating it are to make bc redundant within POSIX sh
 -- The one thing bc can do that POSIX sh arithmetic cannot is float math
--- $ dash ./floatm 'NUM.1 + NUM.2'
--- psh-float only supports the basic operations; psh-float is a POC and I have no plans to make it a full-fledged library
-# Shellcheck
--- Current shellcheck warnings are intended
-# s()
--- The s() function used in ./floatm comes from shappet/bin/seq, and is a pure sh micro implementation of seq
+---
+# Current status
+-- Currently we can convert from decimals to floats - SOMETIMES
+-- However; currently there is no support for negatives
+-- And decimals with a whole number not above 0 will break
+-- Support is very very bad currently; I'm working on it
+-- Currently the test number 7.6 works perfectly in both ways
+-- Clearly there are some bugs I need to iron out ...
+---
+# Testing
+-- I would prefer if users did not test at the current time
+-- I know that everything is broken, and I plan to fix it
+-- However; if you want to see it in action and not open a billion issues
+-- Do the following
+```
+$ dash ./floatm '7.66'
+# expected output is 0 10000001 11101010001111010111000
+$ dash ./floatm '0 10000001 11101010001111010111000'
+# expected output is ~7.66 - 7.65973625176 
 ---
 # Caveats
 -- arithmetic found inside use numbers extremely close to the maximum allowed within some shells

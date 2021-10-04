@@ -105,11 +105,21 @@ condecF() { # converts back to decimal from a float
     [ "$ci" -eq 1 ] && dl="${dl+$dl }$(nth ${n})"
   r="$next"; : $((n+=1))
   done
+  unset whn
   adddec "${dl}" # step 4 # mantissa is 0.$dl
   Mex=2; unset IFS; for i in $(s 2 ${ex}); do # step 5 - 1 * 2^$ex + $m *  2^$ex
     Mex=$((Mex*2))
   done; [ "$ex" -eq 0 ] && Mex=1 # solve for the value of 2^$ex as $Mex
-  echo "(0.$dl * $Mex) + $Mex"
+  #echo "(0.$dl * $Mex) + $Mex"
+  for i in $(s 1 $Mex); do
+    ndl="${ndl+$ndl }$dl"
+  done
+  odl="$dl"
+  adddec "${ndl}" "1" # will overflow
+  [ "$sbit" -eq 1 ] && { # small check for if negative # idk if we actually support negatives yet however
+    sbit="-"
+  } || unset sbit
+  echo "$sbit$((whn+Mex)).$dl"
 }
 nz() { # return a string of 0's with the length of $1
   for i in $(s 1 $1); do
@@ -118,7 +128,7 @@ nz() { # return a string of 0's with the length of $1
   echo "$r"
 }
 adddec() { # add all decimal points in $1 using math hacks
-  IFS=" "; set -- ${1}; unset IFS dl ad; eval last=$#
+  IFS=" "; overflow="$2"; set -- ${1}; unset IFS dl ad; eval last=$#
   # add a check here; 
   # if last item and $n is != 2
   # then preform op on last number and add it to the final number in $dl
@@ -129,15 +139,27 @@ adddec() { # add all decimal points in $1 using math hacks
     [ "$nl" -eq "$last" -a ! "$n" -eq 2 ] && {
       ldl="${dl##* }"; 
       a="$i"; b="$ldl"; : $((n+=1))
-      export a b
+      export a
+      export b
     }
     [ "$n" -eq 2 ] && {
       [ ! "${#a}" -gt 1 ] && a="${ad%% *}"
       [ ! "${#b}" -gt 1 ] && b="${ad##* }"
       
-      until [ "${#a}" -eq 11 -a "${#b}" -eq 11 ]; do # force shorten to 11 charecters to prevent issues
-        a="${a%?}"; b="${b%?}"
+      # ML is 11 unless whn is set
+      [ "$overflow" ] && { 
+        ML=12
+      } || ML=11
+
+      export ML
+
+      until [ "${#a}" -le $ML ]; do # force shorten to 11 charecters to prevent issues
+        a="${a%?}"
+      done # the expected length is 11 - this is useful for calculations of if we've increased past 0
+      until [ "${#b}" -le $ML ]; do
+        b="${b%?}"
       done
+      # echo "${#a} + ${#b}"
       na=0; until [ "${a#0}" = "$a" ]; do
         a="${a#0}"; : $((na+=1))
       done
@@ -159,16 +181,34 @@ adddec() { # add all decimal points in $1 using math hacks
         [ "$((a+b))" -eq $b ] 2>/dev/null; if [ "$?" -eq 2 ]; then
           a="${a%0}"; b="${b%0}"
         fi
-        echo "$a+$b | $((a+b))"
-        dl="${dl+$dl }$n0M$((a+b))$n0T"
+        [ "$overflow" -a ! "$whn" ] && {
+          ov=$((a+b)); movep=$((${#ov}-11))
+          whn="$(movebin $ov $movep)"; whn="${whn%%.**}"
+          export whn
+        }
+        [ "$whn" -a "$overflow" ] && {
+          ov=$((a+b)); movep=$((${#ov}-11)) 
+          nwhn="$(movebin $ov $movep)"; nwhn="${nwhn%%.**}"
+          whn="$((whn+nwhn))"
+        }
+        ovt=$((a+b))
+        [ "${#ovt}" -gt 11 ] && ovt="${ovt#?}" # shorten the result if an overflow is detected
+        dl="${dl+$dl }$n0M$ovt$n0T"
       }
-      n=0; unset ad n0M a b na nb n0a n0b n0T
+      n=0; unset ad n0M a b na nb n0a n0b n0T ov
     }
     : $((n+=1)); : $((nl+=1))
-  done; unset ad; IFS=" "; until [ ${#dl} -le 21 ]; do
-    adddec "$dl"
-  done; export dl
-  echo "$dl"
+  done
+  #[ "${#dl}" -gt 11 -a "$overflow" = 1 ] && {
+  #  movep=$((${#dl}-11)) # how many places to move the decimal
+  #  whn="$(movebin $dl $movep)"; whn="${whn%%.*}" # this spits out some weird data after the . but thankfully we don't need it
+  #  dl="${dl#$whn}"
+  #}
+  export dl whn
+  unset ad; IFS=" "; [ "$dl" ] && until [ ${#dl} -le 11 ]; do 
+    adddec "$dl" # "${overflow}"
+  done
+  unset overflow
 }
 shiftF() { #shift mantissa $2 places
   n=0; m="$1"
@@ -208,12 +248,27 @@ fadds() { # float add single
   
 }
 u="1" # hidden bit is always 1 unless otherwise stated
-#[ "$2" ] && {
-#  o1="$1"; o2="$2"
-#  a1="$(conbinF $1)"; a2="$(conbinF $2)"; fadds "$a1" "$a2"
-#} || 
-#conbinF "$1"
+
+case "$1" in
+  *" "*) condecF "$1" ;; # if the input has a space, expect it to be a raw binary float
+  *) conbinF "$1" ;; 
+esac # do a basic case on $1 for production usage
+
+# everything below here is for testing; disregard all of it.
+
+#condec "$1"
+#conbinF "$1" 
 #condecF "$@"
 #adddec "$@"
 #nth "$@"
-# don't do anything yet
+
+###
+# Test values
+# 7.6 - 0 10000001 11100110011001100110011 # conbinF
+#                  123--45--67--89--12--34 # m - 13 1's
+#         129                              # e - 2 unbiased
+#       0                                  # s - positive
+# 7.60015439948 # condecF
+###
+# Above data should always be the same for testing; unless doubles, extended doubles or quads are added
+# Should really write some unit tests ...
