@@ -1,0 +1,24 @@
+bin/sh
+
+. "$1/s" # source puresh seq by looking in ${1}
+
+# converts $1 to base10 and return via output
+# expects $1 to be base2
+
+condec() { 
+  de="2"; d=""; n=0; r=$1; while [ "$r" ]; do
+    cd="" # cd is current int in conversion
+    next="${r%?}"; ci="${r#$next}" # ci is current int in $1
+    case "$n" in
+      0) cd="$ci";; # cd = ci^0 (ci*1(ci))
+      1) cd="$(((ci*2)))";;
+      *)
+        IFS=""; for i in $(s 1 ${n}); do
+          de=$((de*2))
+        done # de is 2^$n
+        cd="$(((ci*de)))"
+    esac
+    d="$((d+cd))"
+    r=$next; : $((n+=1))
+  done; echo "$d"
+}

@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# this makes multiple secondary sources
+
+. "$1/conbin"
+. "$1/conbind"
+. "$1/movebin"
+
+conbinF() { # convert $1 to binary with float point (if $1 has .)
+  sbit=1; [ "${1%%.*}" -ge 0 ] && sbit=0 # set sign bit to 0 if > 0; otherwise use 1
+  # shorten $1 to only whole parts; then check if > 0o
+  whp="$(conbin ${1%%.*})"; fp="$(conbind ${1##*.})"; whn="${whp:-0}.$fp" # $whn is binary whole number
+  
+  echo "${whp:-0} - $fp | $whn | ${whn%%.*}"
+  [ "$sbit" -eq 1 ] && whn="${whn#-}" # remove the negative from $whn since sign bit was already set
+
+  if [ ! "${whn%%.*}" -eq 0 -a ! "${whn%%.*}" -eq 1 ]; then # $ad is used to decided which way to shift and is also used for the exponent
+    ad=${whn%%.*}; ad=$((${#ad}-1))
+    fn=$(movebin "$whn" "$ad")
+  elif [ "${whn%%.*}" -eq 1 ]; then
+    fn="$whn"
+  else # moving to the right is where it becomes complicated
+    n=0; twhn="$whn"; [ "${twhn##*.}" != "$twhn" ] && : $((n+=1)) # increment if removing 0
+    twhn=${twhn##*.} # remove 0. from $whn
+    until [ "1${twhn%%1*}" = 1 ]; do
+      twhn=${twhn#?}; 
+      : $((n+=1))
+    done; ad="-$n"; unset twhn; fn=$(movebin "$whn" "$ad")
+ fi
+
+  echo "-- ${whn} | $fn | $ad"
+  : $((ad+=127)); ad="$(conbin $ad)" # add 127 to exponent to apply bias & convert to binary
+  until [ "${#ad}" -eq 8 ]; do # exponent must be 8 bytes
+    ad="0$ad"
+  done
+  while [ "${#fn}" -gt 25 ]; do
+    fn="${fn%?}"
+  done # force shorten to 23 - 2 extra are 1 and .
+  while [ "${#fn}" -lt 25 ]; do
+    fn="${fn}0"
+  done # pad if too short
+  mant="${fn##*.}"
+  echo "${sbit} ${ad} ${mant}" 
+  # $u is hidden bit
+}

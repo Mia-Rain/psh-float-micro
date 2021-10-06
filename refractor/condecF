@@ -1,0 +1,29 @@
+#!/bin/sh
+
+. "$1/condec"
+. "$1/s"
+
+condecF() { # converts back to decimal from a float
+  IFS=" "; set -- ${1}; sbit="${1}"; ex="${2}"; m="${3}" # step 1
+  ex="$(($(condec $ex)-127))" ## unbias exponent # step 2/3
+  r="$m"; n=1; while [ "$r" ]; do # loop over every character in the mantissa
+  next="${r#?}" ci="${r%$next}"; pl="${#ans}"
+    [ "$ci" -eq 1 ] && dl="${dl+$dl }$(nth ${n})"
+  r="$next"; : $((n+=1))
+  done
+  unset whn
+  adddec "${dl}" # step 4 # mantissa is 0.$dl
+  Mex=2; unset IFS; for i in $(s 2 ${ex}); do # step 5 - 1 * 2^$ex + $m *  2^$ex
+    Mex=$((Mex*2))
+  done; [ "$ex" -eq 0 ] && Mex=1 # solve for the value of 2^$ex as $Mex
+  #echo "(0.$dl * $Mex) + $Mex"
+  for i in $(s 1 $Mex); do
+    ndl="${ndl+$ndl }$dl"
+  done
+  odl="$dl"
+  adddec "${ndl}" "1" # will overflow
+  [ "$sbit" -eq 1 ] && { # small check for if negative # idk if we actually support negatives yet however
+    sbit="-"
+  } || unset sbit
+  echo "$sbit$((whn+Mex)).$dl"
+}

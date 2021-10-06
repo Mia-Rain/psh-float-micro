@@ -1,0 +1,7 @@
+# Unit Tests
+-- Due to the extreme size of this project
+-- I have decided to write unit tests
+---
+# Depends
+-- These unit tests make use of `bc` to offload 
+-- The required arithmetic; as all issues seem to happen here

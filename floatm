@@ -1,215 +1,16 @@
 #!/bin/sh
 # math is a fuck
-#set -f; IFS=" "; set -- ${1}; unset IFS; set +f
 
-s() { # s() is puresh seq 
-  n=$(($1)); while [ "$n" -le $(($2)) ]; do
-    echo "$n"; : $((n+=1))
-  done
-}
-conbin() { # convert $1 to binary and return
-  b=""; r=$1; until [ "$r" -eq 0 ]; do
-    b="$((r%2))$b"; r="$((r/2))"
-  done; echo "$b"
-}
-condec() { # convert $1 to base10 and return
-  de="2"; d=""; n=0; r=$1; while [ "$r" ]; do
-    cd="" # cd is current int in conversion
-    next="${r%?}"; ci="${r#$next}" # ci is current int in $1
-    case "$n" in
-      0) cd="$ci";; # cd = ci^0 (ci*1(ci))
-      1) cd="$(((ci*2)))";;
-      *)
-        IFS=""; for i in $(s 1 ${n}); do
-          de=$((de*2))
-        done # de is 2^$n
-        cd="$(((ci*de)))"
-    esac
-    d="$((d+cd))"
-    r=$next; : $((n+=1))
-  done; echo "$d"
-}
-conbind() { # convert $1 (decimal part) to binary; 30 bits - extra bits are for extended mantissa - will be force shortened to 23 bits or padded if CC = 100 before length is 23
-  cc=""; p=""; l=${#1}
-  for i in $(s 1 23); do # $1 is a whole number; due to lack of access to floats we have to pretend $1 is a decimal
-    # $l is length of $1
-    [ ${#cc} -gt ${l} ] 2>/dev/null && {
-      cc="${cc#?}"; t=${cc#?}; until [ "${cc%$t}" != "0" ]; do
-        cc="${cc#?}"
-      done
-      unset t
-    }
-    cc=$((${cc:-$1}*2))
-    if [ ${#cc} -gt ${l} ]; then 
-      p="${p}1"
-    else
-      p="${p}0"
-    fi
-    [ "$cc" = "100" ] && break
-  done; echo "$p"
-}
-movebin() { # moves the binary point of $1 to left or right based on value of $2; return new num
-  [ "$2" -gt 0 ] && {
-    fn="${1%%.*}${1##*.}" # $fn is $1 without .
-    fc="$fn"; until [ ${#fc} = 1 ]; do
-      fc=${fc%?}
-    done # $fc is first charaecter
-    fn="${fc}.${fn#?}" # yank first charecter from $fn and add "${fc}."
-  } || {
-    fn="${1##*.}"; fc="$fn"; until [ "1${fc%%1*}" = 1 ]; do
-      fc=${fc#?}
-    done; fc="${fc#?}"; fn="1.${fc}"
-  }
-  echo "$fn" # this $fn has been normilized
-}
-conbinF() { # convert $1 to binary with float point (if $1 has .)
-  sbit=1; [ "${1%%.*}" -gt 0 ] && sbit=0 # set sign bit to 0 if > 0; otherwise use 1
-  # shorten $1 to only whole parts; then check if > 0
-  whp="$(conbin ${1%%.*})"; fp="$(conbind ${1##*.})"; whn="${whp:-0}.$fp" # $whn is binary whole number
-  [ "${whn%%.*}" != 0 ] && { # $ad is used to decided which way to shift and is also used for the exponent
-    ad=${whn%%.*}; ad=$((${#ad}-1))
-    fn=$(movebin "$whn" "$ad")
-  } || { # moving to the right is where it becomes complicated
-    n=0; twhn="$whn"; [ "${twhn##*.}" != "$twhn" ] && : $((n+=1)) # increment if removing 0
-    twhn=${twhn##*.} # remove 0. from $whn
-    until [ "1${twhn%%1*}" = 1 ]; do
-      twhn=${twhn#?}; 
-      : $((n+=1))
-    done; ad="-$n"; unset twhn; fn=$(movebin "$whn" "$ad")
-  }
-  : $((ad+=127)); ad="$(conbin $ad)" # add 127 to exponent to apply bias & convert to binary
-  until [ "${#ad}" -eq 8 ]; do # exponent must be 8 bytes
-    ad="0$ad"
-  done
-  while [ "${#fn}" -gt 25 ]; do
-    fn="${fn%?}"
-  done # force shorten to 23 - 2 extra are 1 and .
-  while [ "${#fn}" -lt 25 ]; do
-    fn="${fn}0"
-  done # pad if too short
-  mant="${fn##*.}"
-  echo "${sbit} ${ad} ${mant}" 
-  # $u is hidden bit
-}
-powerindex='50000000000000000000 25000000000000000000 12500000000000000000 06250000000000000000 03125000000000000000 01562500000000000000 00781250000000000000 00390625000000000000 00195312500000000000 00097656250000000000 00048828125000000000 00024414062500000000 00012207031250000000 00006103515625000000 00003051757812500000 00001525878906250000 00000762939453125000 00000381469726562500 00000190734863281250 00000095367431640625 00000047683715820312 00000023841857910156 00000011920928955078 00000005960464477539 00000002980232238769 00000001490116119384 00000000745058059692 00000000372529029846 00000000186264514923 00000000093132257461 00000000046566128730 00000000023283064365 00000000011641532182 00000000005820766091 00000000002910383045 00000000001455191522 00000000000727595761 00000000000363797880 00000000000181898940 00000000000090949470 00000000000045474735 00000000000022737367 00000000000011368683 00000000000005684341 00000000000002842170 00000000000001421085 00000000000000710542 00000000000000355271 00000000000000177635 00000000000000088817 00000000000000044408 00000000000000022204'
-# max value is 0.9999999999999997777 # 22 charecters
-nth() {
-  ex="$1"; IFS=" "; set -- ${powerindex}; unset IFS
-  eval "printf '%s\n' \${$ex}"
-} # yank an item out of the powerindex based on the number of $1
-condecF() { # converts back to decimal from a float
-  IFS=" "; set -- ${1}; sbit="${1}"; ex="${2}"; m="${3}" # step 1
-  ex="$(($(condec $ex)-127))" ## unbias exponent # step 2/3
-  r="$m"; n=1; while [ "$r" ]; do # loop over every character in the mantissa
-  next="${r#?}" ci="${r%$next}"; pl="${#ans}"
-    [ "$ci" -eq 1 ] && dl="${dl+$dl }$(nth ${n})"
-  r="$next"; : $((n+=1))
-  done
-  unset whn
-  adddec "${dl}" # step 4 # mantissa is 0.$dl
-  Mex=2; unset IFS; for i in $(s 2 ${ex}); do # step 5 - 1 * 2^$ex + $m *  2^$ex
-    Mex=$((Mex*2))
-  done; [ "$ex" -eq 0 ] && Mex=1 # solve for the value of 2^$ex as $Mex
-  #echo "(0.$dl * $Mex) + $Mex"
-  for i in $(s 1 $Mex); do
-    ndl="${ndl+$ndl }$dl"
-  done
-  odl="$dl"
-  adddec "${ndl}" "1" # will overflow
-  [ "$sbit" -eq 1 ] && { # small check for if negative # idk if we actually support negatives yet however
-    sbit="-"
-  } || unset sbit
-  echo "$sbit$((whn+Mex)).$dl"
-}
-nz() { # return a string of 0's with the length of $1
-  for i in $(s 1 $1); do
-    r="${r}0"
-  done; 
-  echo "$r"
-}
-adddec() { # add all decimal points in $1 using math hacks
-  IFS=" "; overflow="$2"; set -- ${1}; unset IFS dl ad; eval last=$#
-  # add a check here; 
-  # if last item and $n is != 2
-  # then preform op on last number and add it to the final number in $dl
-  # need to do this since 13 (single) is odd where 52 (double) is even
-  n=1; nl=1; for i in "$@"; do
-    ad="${ad+$ad }$i";
-    #echo "- $i | $last | $nl"
-    [ "$nl" -eq "$last" -a ! "$n" -eq 2 ] && {
-      ldl="${dl##* }"; 
-      a="$i"; b="$ldl"; : $((n+=1))
-      export a
-      export b
-    }
-    [ "$n" -eq 2 ] && {
-      [ ! "${#a}" -gt 1 ] && a="${ad%% *}"
-      [ ! "${#b}" -gt 1 ] && b="${ad##* }"
-      
-      # ML is 11 unless whn is set
-      [ "$overflow" ] && { 
-        ML=12
-      } || ML=11
+# -- refactor source
 
-      export ML
+for i in ./refractor/*; do
+  read -r shebang < ${i} # read only the first line into $shebang
+  shebang="${shebang#\#}"; shebang="${shebang#\!}" # remove the first part of the shebang
+  [ -x "$shebang" ] && { # make sure the shebang exists
+    . ${i} "$PWD/refractor/" # source
+  } # this will fall apart if users are not in ./
+done
 
-      until [ "${#a}" -le $ML ]; do # force shorten to 11 charecters to prevent issues
-        a="${a%?}"
-      done # the expected length is 11 - this is useful for calculations of if we've increased past 0
-      until [ "${#b}" -le $ML ]; do
-        b="${b%?}"
-      done
-      # echo "${#a} + ${#b}"
-      na=0; until [ "${a#0}" = "$a" ]; do
-        a="${a#0}"; : $((na+=1))
-      done
-      nb=0; until [ "${b#0}" = "$b" ]; do
-        b="${b#0}"; : $((nb+=1))
-      done
-        if [ "$nb" -gt 0 -a "$na" -gt 0 ]; then
-          [ "$na" -lt "$nb" ] && {
-            n0M="$(nz $na)"
-          } || n0M="$(nz $nb)"
-        fi
-        n0a="$(nz $na)"
-        n0b="$(nz $nb)"
-      {
-        if [ "$((a+b))" -eq 0 ] || [ "$((a+b))" = "$b" ]; then
-          a="${a%0}"; b="${b%0}"
-          n0T="0"
-        fi
-        [ "$((a+b))" -eq $b ] 2>/dev/null; if [ "$?" -eq 2 ]; then
-          a="${a%0}"; b="${b%0}"
-        fi
-        [ "$overflow" -a ! "$whn" ] && {
-          ov=$((a+b)); movep=$((${#ov}-11))
-          whn="$(movebin $ov $movep)"; whn="${whn%%.**}"
-          export whn
-        }
-        [ "$whn" -a "$overflow" ] && {
-          ov=$((a+b)); movep=$((${#ov}-11)) 
-          nwhn="$(movebin $ov $movep)"; nwhn="${nwhn%%.**}"
-          whn="$((whn+nwhn))"
-        }
-        ovt=$((a+b))
-        [ "${#ovt}" -gt 11 ] && ovt="${ovt#?}" # shorten the result if an overflow is detected
-        dl="${dl+$dl }$n0M$ovt$n0T"
-      }
-      n=0; unset ad n0M a b na nb n0a n0b n0T ov
-    }
-    : $((n+=1)); : $((nl+=1))
-  done
-  #[ "${#dl}" -gt 11 -a "$overflow" = 1 ] && {
-  #  movep=$((${#dl}-11)) # how many places to move the decimal
-  #  whn="$(movebin $dl $movep)"; whn="${whn%%.*}" # this spits out some weird data after the . but thankfully we don't need it
-  #  dl="${dl#$whn}"
-  #}
-  export dl whn
-  unset ad; IFS=" "; [ "$dl" ] && until [ ${#dl} -le 11 ]; do 
-    adddec "$dl" # "${overflow}"
-  done
-  unset overflow
-}
 shiftF() { #shift mantissa $2 places
   n=0; m="$1"
   [ "$2" -ge 1 ] && {
@@ -249,15 +50,16 @@ fadds() { # float add single
 }
 u="1" # hidden bit is always 1 unless otherwise stated
 
-case "$1" in
-  *" "*) condecF "$1" ;; # if the input has a space, expect it to be a raw binary float
-  *) conbinF "$1" ;; 
-esac # do a basic case on $1 for production usage
+#case "$1" in
+#  *" "*) condecF "$1" ;; # if the input has a space, expect it to be a raw binary float
+#  *) conbinF "$1" ;; 
+#esac # do a basic case on $1 for production usage
 
 # everything below here is for testing; disregard all of it.
 
+#conbind "$1"
 #condec "$1"
-#conbinF "$1" 
+conbinF "$1" 
 #condecF "$@"
 #adddec "$@"
 #nth "$@"

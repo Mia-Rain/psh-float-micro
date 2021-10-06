@@ -1,0 +1,80 @@
+#!/bin/sh
+
+. "$1/movebin"
+. "$1/nz"
+
+
+adddec() { # add all decimal points in $1 using math hacks
+  IFS=" "; overflow="$2"; set -- ${1}; unset IFS dl ad; eval last=$#
+  n=1; nl=1; for i in "$@"; do
+    ad="${ad+$ad }$i";
+    #echo "- $i | $last | $nl"
+    [ "$nl" -eq "$last" -a ! "$n" -eq 2 ] && {
+      ldl="${dl##* }"; 
+      a="$i"; b="$ldl"; : $((n+=1))
+      export a
+      export b
+    }
+    [ "$n" -eq 2 ] && {
+      [ ! "${#a}" -gt 1 ] && a="${ad%% *}"
+      [ ! "${#b}" -gt 1 ] && b="${ad##* }"
+      
+      # ML is 11 unless whn is set
+      [ "$overflow" ] && { 
+        ML=12
+      } || ML=11
+
+      export ML
+
+      until [ "${#a}" -le $ML ]; do # force shorten to 11 charecters to prevent issues
+        a="${a%?}"
+      done # the expected length is 11 - this is useful for calculations of if we've increased past 0
+      until [ "${#b}" -le $ML ]; do
+        b="${b%?}"
+      done
+      # echo "${#a} + ${#b}"
+      na=0; until [ "${a#0}" = "$a" ]; do
+        a="${a#0}"; : $((na+=1))
+      done
+      nb=0; until [ "${b#0}" = "$b" ]; do
+        b="${b#0}"; : $((nb+=1))
+      done
+        if [ "$nb" -gt 0 -a "$na" -gt 0 ]; then
+          [ "$na" -lt "$nb" ] && {
+            n0M="$(nz $na)"
+          } || n0M="$(nz $nb)"
+        fi
+        n0a="$(nz $na)"
+        n0b="$(nz $nb)"
+      {
+        if [ "$((a+b))" -eq 0 ] || [ "$((a+b))" = "$b" ]; then
+          a="${a%0}"; b="${b%0}"
+          n0T="0"
+        fi
+        [ "$((a+b))" -eq $b ] 2>/dev/null; if [ "$?" -eq 2 ]; then
+          a="${a%0}"; b="${b%0}"
+        fi
+        [ "$overflow" -a ! "$whn" ] && {
+          ov=$((a+b)); movep=$((${#ov}-11))
+          whn="$(movebin $ov $movep)"; whn="${whn%%.**}"
+          export whn
+        }
+        [ "$whn" -a "$overflow" ] && {
+          ov=$((a+b)); movep=$((${#ov}-11)) 
+          nwhn="$(movebin $ov $movep)"; nwhn="${nwhn%%.**}"
+          whn="$((whn+nwhn))"
+        }
+        ovt=$((a+b))
+        [ "${#ovt}" -gt 11 ] && ovt="${ovt#?}" # shorten the result if an overflow is detected
+        dl="${dl+$dl }$n0M$ovt$n0T"
+      }
+      n=0; unset ad n0M a b na nb n0a n0b n0T ov
+    }
+    : $((n+=1)); : $((nl+=1))
+  done
+  export dl whn
+  unset ad; IFS=" "; [ "$dl" ] && until [ ${#dl} -le 11 ]; do 
+    adddec "$dl" # "${overflow}"
+  done
+  unset overflow
+}

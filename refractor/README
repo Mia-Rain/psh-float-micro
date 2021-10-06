@@ -1,0 +1,8 @@
+# Refractoring
+-- To all for unit tests the script has been refactored
+-- Into smaller parts; this folder/path contains scripts
+-- Each with a single function
+-- Which will be sourced by floatm on start
+----
+-- Some functions require additional functions and will make
+-- A secondary source

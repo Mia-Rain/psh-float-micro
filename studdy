@@ -1,3 +1,5 @@
 # referenced lectures
 http://pages.cs.wisc.edu/~smoler/x86text/lect.notes/arith.flpt.html
 https://kyledewey.github.io/comp122-fall17/lecture/week_2/floating_point_interconversions.html
+# outside convertors
+https://babbage.cs.qc.cuny.edu/ieee-754.old/decimal.html # allows converting to unrounded float

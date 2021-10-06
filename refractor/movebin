@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# moves the binary point of $1 to left or right based on value of $2; return new num
+movebin() {
+  if [ "$2" -gt 0 ]; then
+    fn="${1%%.*}${1##*.}" # $fn is $1 without .
+    fc="$fn"; until [ ${#fc} = 1 ]; do
+      fc=${fc%?}
+    done # $fc is first charaecter
+    fn="${fc}.${fn#?}" # yank first charecter from $fn and add "${fc}."
+  elif [ ! "$2" -lt 0 ]; then
+    fn="${1##*.}"; fc="$fn"; until [ "1${fc%%1*}" = 1 ]; do
+      fc=${fc%?}
+    done; fc="${fc%?}"; fn="1.${fc}"
+  else # this makes use of our extra iteration
+    fn="${1##*.}"; fc="$fn"; until [ "1${fc%%1*}" = 1 ]; do
+      fc=${fc#?}
+    done; fc="${fc#?}"; fn="1.${fc}"
+  fi
+  echo "$fn" # this $fn has been normilized
+}

@@ -1,0 +1,8 @@
+#!/bin/sh
+# this function converts $1 to UNSIGNED binary; and then returns it an output
+
+conbin() {
+  b=""; r=$1; until [ "$r" -eq 0 ]; do
+    b="$((r%2))$b"; r="$((r/2))"
+  done; echo "$b"
+}

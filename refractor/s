@@ -1,0 +1,10 @@
+#!/bin/sh
+# this is a nearly direct rip of the s() function from my puresh seq
+# this function is extremely useful when working with counters
+# As such other scripts run a secondary source on it
+
+s() {
+  n=$(($1)); while [ "$n" -le $(($2)) ]; do
+    echo "$n"; : $((n+=1))
+  done
+}

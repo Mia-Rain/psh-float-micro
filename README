@@ -3,16 +3,15 @@
 -- The purpose of this script and the pain I have endured creating it are to make bc redundant within POSIX sh
 -- The one thing bc can do that POSIX sh arithmetic cannot is float math
 ---
+# References
+-- This/These script(s) make(s) use of several different lectures and outside convertors
+-- See ./studdy for links to these 
+---
 # Current status
--- Currently we can convert from decimals to floats - SOMETIMES
--- However; currently there is no support for negatives
--- And decimals with a whole number not above 0 will break
--- Support is very very bad currently; I'm working on it
--- Currently the test number 7.6 works perfectly in both ways
--- Clearly there are some bugs I need to iron out ...
+-- Conversion algorithms are WorkInProgress's and may be inaccurate, flat out wrong
+-- Or use weird shell hacks
 ---
 # Testing
--- I would prefer if users did not test at the current time
 -- I know that everything is broken, and I plan to fix it
 -- However; if you want to see it in action and not open a billion issues
 -- Do the following
@@ -21,11 +20,13 @@ $ dash ./floatm '7.66'
 # expected output is 0 10000001 11101010001111010111000
 $ dash ./floatm '0 10000001 11101010001111010111000'
 # expected output is ~7.66 - 7.65973625176 
+```
+-- Addtionally unit tests cant be found in ./tests/
 ---
 # Caveats
--- arithmetic found inside use numbers extremely close to the maximum allowed within some shells
--- infact, the numbers offten go over the maximum, as such this script has only been built to work with dash
--- results from other shells are likely to be incorrect
+-- This is likely to be inaccurate as decimals are force shortened to 11 charecters
+-- This is to prevent issues with outside shells not support numbers 23 digits long
+-- Additonally I abuse this to test if the length/value of integers has "overflowed"
 ----
 -- sh was never meant to work with floats.
 -- Please, for the sake of all that is good, DO NOT USE THIS

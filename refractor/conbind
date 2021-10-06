@@ -1,0 +1,31 @@
+#!/bin/sh
+
+. "$1/s" # source puresh seq via $1/
+
+# convert $1 to binary using the algo featured in https://kyledewey.github.io/comp122-fall17/lecture/week_2/floating_point_interconversions - Step 3
+# typically the aglo runs until the result is 1/1.0/1.00 OR until 23 iterations; this version is adjusted to run for 24 iterations; OR until 1/1.0/1.00 is the result
+# Note that if the decimal begins with `0` (ie 0.99) too many iterations could cause an incorrect value; this is caused by movebin() and the way it handles movement to the right
+
+
+conbind() {
+  cc=""; p=""; l=${#1}
+  for i in $(s 1 24); do # pretend $1 is a decimal
+    # $l is length of $l
+    [ ${#cc} -gt ${l} ] 2>/dev/null && {
+      cc="${cc#?}"; t=${cc#?}; until [ "${cc%$t}" != "0" ]; do
+        cc="${cc#?}"
+      done
+      unset t
+    }
+    cc=$((${cc:-$1}*2))
+    if [ ${#cc} -gt ${l} ]; then 
+      p="${p}1"
+      #echo "$cc | ${#cc} | $l | -- 1"
+    else
+      p="${p}0"
+      #echo "$cc | ${#cc} | $l | -- 0"
+    fi
+    [ "$cc" -eq 100 -o "$cc" -eq 10 -o "$cc" -eq 1 ] && break
+    # if cc is 1.00.1.0 or 1 end the loop 
+  done; echo "$p"
+}
