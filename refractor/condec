@@ -1,6 +1,6 @@
-bin/sh
+#!/bin/sh
 
-. "$1/s" # source puresh seq by looking in ${1}
+. "${REDIR}/s" # source puresh seq by looking in ${1}
 
 # converts $1 to base10 and return via output
 # expects $1 to be base2

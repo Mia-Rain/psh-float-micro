@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. "$1/s" # source puresh seq via $1/
+. "${REDIR}/s" # source puresh seq via $1/
 
 # convert $1 to binary using the algo featured in https://kyledewey.github.io/comp122-fall17/lecture/week_2/floating_point_interconversions - Step 3
 # typically the aglo runs until the result is 1/1.0/1.00 OR until 23 iterations; this version is adjusted to run for 24 iterations; OR until 1/1.0/1.00 is the result

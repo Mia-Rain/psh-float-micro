@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. "$1/s"
+. "${REDIR}/s"
 
 nz() { # return a string of 0's with the length of $1
   for i in $(s 1 $1); do

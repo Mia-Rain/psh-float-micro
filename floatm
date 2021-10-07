@@ -7,7 +7,7 @@ for i in ./refractor/*; do
   read -r shebang < ${i} # read only the first line into $shebang
   shebang="${shebang#\#}"; shebang="${shebang#\!}" # remove the first part of the shebang
   [ -x "$shebang" ] && { # make sure the shebang exists
-    . ${i} "$PWD/refractor/" # source
+    export REDIR="$PWD/refractor/"; . ${i} # source
   } # this will fall apart if users are not in ./
 done
 
@@ -59,7 +59,9 @@ u="1" # hidden bit is always 1 unless otherwise stated
 
 #conbind "$1"
 #condec "$1"
-conbinF "$1" 
+conbinF "$1"
+echo "--" 
+condecF "${sbit} ${ad} ${mant}"
 #condecF "$@"
 #adddec "$@"
 #nth "$@"

@@ -1,7 +1,7 @@
 #!/bin/sh
 
-. "$1/movebin"
-. "$1/nz"
+. "${REDIR}/movebin"
+. "${REDIR}/nz"
 
 
 adddec() { # add all decimal points in $1 using math hacks
@@ -14,6 +14,7 @@ adddec() { # add all decimal points in $1 using math hacks
       a="$i"; b="$ldl"; : $((n+=1))
       export a
       export b
+      export ll="1"
     }
     [ "$n" -eq 2 ] && {
       [ ! "${#a}" -gt 1 ] && a="${ad%% *}"
@@ -66,12 +67,17 @@ adddec() { # add all decimal points in $1 using math hacks
         }
         ovt=$((a+b))
         [ "${#ovt}" -gt 11 ] && ovt="${ovt#?}" # shorten the result if an overflow is detected
-        dl="${dl+$dl }$n0M$ovt$n0T"
+        [ ! "$ll" ] && {
+          dl="${dl+$dl }$n0M$ovt$n0T"
+        } || {
+          dl="$n0M$ovt$n0T" # if on last number do not add in previous
+        }
       }
-      n=0; unset ad n0M a b na nb n0a n0b n0T ov
+      n=0; unset ll ad n0M a b na nb n0a n0b n0T ov
     }
     : $((n+=1)); : $((nl+=1))
   done
+  #echo "|| $dl"
   export dl whn
   unset ad; IFS=" "; [ "$dl" ] && until [ ${#dl} -le 11 ]; do 
     adddec "$dl" # "${overflow}"
