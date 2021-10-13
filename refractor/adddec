@@ -3,18 +3,23 @@
 . "${REDIR}/movebin"
 . "${REDIR}/nz"
 
+# adddec handles overflow; will return $whn
 
 adddec() { # add all decimal points in $1 using math hacks
   IFS=" "; overflow="$2"; set -- ${1}; unset IFS dl ad; eval last=$#
   n=1; nl=1; for i in "$@"; do
     ad="${ad+$ad }$i";
     #echo "- $i | $last | $nl"
-    [ "$nl" -eq "$last" -a ! "$n" -eq 2 ] && {
+    [ "$nl" -eq "$last" -a ! "$n" -eq 2 -a ! "$last" -eq 1 ] && {
       ldl="${dl##* }"; 
       a="$i"; b="$ldl"; : $((n+=1))
       export a
       export b
       export ll="1"
+    }
+    [ "$last" -eq 1 ] && {
+      dl="$i"; unset whn
+      break
     }
     [ "$n" -eq 2 ] && {
       [ ! "${#a}" -gt 1 ] && a="${ad%% *}"
@@ -47,7 +52,6 @@ adddec() { # add all decimal points in $1 using math hacks
         fi
         n0a="$(nz $na)"
         n0b="$(nz $nb)"
-      {
         if [ "$((a+b))" -eq 0 ] || [ "$((a+b))" = "$b" ]; then
           a="${a%0}"; b="${b%0}"
           n0T="0"
@@ -55,32 +59,56 @@ adddec() { # add all decimal points in $1 using math hacks
         [ "$((a+b))" -eq $b ] 2>/dev/null; if [ "$?" -eq 2 ]; then
           a="${a%0}"; b="${b%0}"
         fi
+
+        # OVERFLOW BUGS HAPPEN HERE (!!!)
+        # THIS ONLY WORKS IF A+B > 0.9
+
+        # -- the old version of this literally just did not work lol
+        
+        # this is somehow of no use ...
+        #echo "---- adddec() - L66:"
+        #echo "-- state = overflow handling | overflow state = $overflow | current whole number = $whn"
+        #echo "----"
+
         [ "$overflow" -a ! "$whn" ] && {
           ov=$((a+b)); movep=$((${#ov}-11))
           whn="$(movebin $ov $movep)"; whn="${whn%%.**}"
           export whn
         }
-        [ "$whn" -a "$overflow" ] && {
-          ov=$((a+b)); movep=$((${#ov}-11)) 
-          nwhn="$(movebin $ov $movep)"; nwhn="${nwhn%%.**}"
-          whn="$((whn+nwhn))"
-        }
+        
+        # [ "$whn" -a "$overflow" ] && {
+        #  ov=$((a+b)); movep=$((${#ov}-11)) 
+        #  nwhn="$(movebin $ov $movep)"; nwhn="${nwhn%%.**}"
+        #  whn="$((whn+nwhn))"
+        # } # what does the above even do ???
+
+        #echo "---- adddec - L84:"
+        #echo "-- overflow decimal = $ov | move ammount = $movep | moved = $(movebin $ov $movep)"
+        #echo "----"
+
         ovt=$((a+b))
         [ "${#ovt}" -gt 11 ] && ovt="${ovt#?}" # shorten the result if an overflow is detected
+
         [ ! "$ll" ] && {
           dl="${dl+$dl }$n0M$ovt$n0T"
         } || {
           dl="$n0M$ovt$n0T" # if on last number do not add in previous
         }
-      }
       n=0; unset ll ad n0M a b na nb n0a n0b n0T ov
     }
     : $((n+=1)); : $((nl+=1))
   done
-  #echo "|| $dl"
+  echo "---- adddec():"
+  echo "-- to add = $dl | number of items = $last | overflow = ${whn:-NO OVERFLOW}"
+  echo "----"
   export dl whn
-  unset ad; IFS=" "; [ "$dl" ] && until [ ${#dl} -le 11 ]; do 
+  unset ad; IFS=" "; [ "$dl" -a ! "$last" -eq 1 ] && until [ ${#dl} -le 11 ]; do 
     adddec "$dl" # "${overflow}"
   done
+  [ "$last" -eq 1 -a ${#dl} -gt 11 ] && {
+    until [ ${#dl} -le 11 ]; do
+      dl="${dl%0}"
+    done
+  }
   unset overflow
 }

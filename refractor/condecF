@@ -8,7 +8,7 @@ condecF() { # converts back to decimal from a float
   IFS=" "; set -- ${1}; sbit="${1}"; ex="${2}"; m="${3}" # step 1
   echo "$sbit $ex $m"
   ex="$(($(condec $ex)-127))" ## unbias exponent # step 2/3
-  echo "^$ex"
+  #echo "^$ex"
   r="$m"; n=1; while [ "$r" ]; do # loop over every character in the mantissa
   next="${r#?}" ci="${r%$next}"; pl="${#ans}"
     [ "$ci" -eq 1 ] && dl="${dl+$dl }$(nth ${n})"
@@ -18,28 +18,46 @@ condecF() { # converts back to decimal from a float
   adddec "${dl}" # step 4 # mantissa is 0.$dl
   Mex=2; unset IFS; for i in $(s 2 ${ex}); do # step 5 - 1 * 2^$ex + $m *  2^$ex
     Mex=$((Mex*2))
-  done; [ "$ex" -eq 0 ] && Mex=1 # solve for the value of 2^$ex as $Mex
-  [ "$ex" -lt 0  ] && { # if exponent is negative fetch it from nth
+  done
+  [ "$ex" -eq 0 ] && Mex=1 # solve for the value of 2^$ex as $Mex
+  #echo "$ex | $Mex"
+  [ "$ex" -lt 0 -a ! "$ex" -eq 0 ] && { # if exponent is negative fetch it from nth
     Mex=$(nth "${ex#-}")
   } # this will only work if the exponent is <=-52; anymore and it will be missing fron powerindex
-  echo "(0.$dl * $Mex) + $Mex"
-  [ "$ex" -gt 0 ] && {
+  echo "---- condecF() - L27:"
+  echo "-- equation = (0.$dl * [0.]$Mex) + [0.]$Mex"
+  echo "----"
+  if [ "$ex" -ge 0 ]; then
     for i in $(s 1 $Mex); do
       ndl="${ndl+$ndl }$dl"
     done
     odl="$dl"
-    adddec "${ndl}" "1" # will overflow
-  } || {
-    dl="$((($dl/2)))"
+    echo "---- condecF() - L33:"
+    echo "-- to add = ${ndl}"
+    echo "----"
+    unset iov; 
+    [ "${dl#0}" = "${dl}" ] && { 
+      iov=1
+    }
+    adddec "${ndl}" "${iov}" # COULD (!!!) overflow
+    # $iov is used to determine if we will overflow
+  else
+    #echo "${#Mex} | ${#dl}"
     until [ "${#Mex}" -eq "${#dl}" ]; do
-      Mex=${Mex%0}
+      [ "${Mex%0}" != "$Mex" ] && {
+        Mex=${Mex%0}  
+      }
     done
+    dl=$((dl/2))
     : $((dl+=Mex))
     unset Mex
-  }
-  ### my testing hows -1 is the lowest possible value for $ex
+  fi
+  ### my testing shows -1 is the lowest possible value for $ex
   [ "$sbit" = 1 ] && { # small check for if negative # idk if we actually support negatives yet however
     sbit="-"
   } || unset sbit
+  echo "---- condecF() - L50:"
+  echo "-- signbit = ${sbit:-+} | overflow = $whn | 2^$ex = $Mex"
+  echo "----"
   echo "$sbit$((whn+Mex)).$dl"
 }
