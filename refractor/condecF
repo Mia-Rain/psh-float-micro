@@ -6,7 +6,7 @@
 
 condecF() { # converts back to decimal from a float
   IFS=" "; set -- ${1}; sbit="${1}"; ex="${2}"; m="${3}" # step 1
-  echo "$sbit $ex $m"
+  #echo "$sbit $ex $m"
   ex="$(($(condec $ex)-127))" ## unbias exponent # step 2/3
   #echo "^$ex"
   r="$m"; n=1; while [ "$r" ]; do # loop over every character in the mantissa
@@ -32,9 +32,9 @@ condecF() { # converts back to decimal from a float
       ndl="${ndl+$ndl }$dl"
     done
     odl="$dl"
-    echo "---- condecF() - L33:"
-    echo "-- to add = ${ndl}"
-    echo "----"
+    #echo "---- condecF() - L33:"
+    #echo "-- to add = ${ndl}"
+    #echo "----"
     unset iov; 
     [ "${dl#0}" = "${dl}" ] && { 
       iov=1
@@ -56,8 +56,8 @@ condecF() { # converts back to decimal from a float
   [ "$sbit" = 1 ] && { # small check for if negative # idk if we actually support negatives yet however
     sbit="-"
   } || unset sbit
-  echo "---- condecF() - L50:"
-  echo "-- signbit = ${sbit:-+} | overflow = $whn | 2^$ex = $Mex"
-  echo "----"
+  #echo "---- condecF() - L50:"
+  #echo "-- signbit = ${sbit:-+} | overflow = $whn | 2^$ex = $Mex"
+  #echo "----"
   echo "$sbit$((whn+Mex)).$dl"
 }

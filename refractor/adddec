@@ -6,10 +6,14 @@
 # adddec handles overflow; will return $whn
 
 adddec() { # add all decimal points in $1 using math hacks
-  IFS=" "; overflow="$2"; set -- ${1}; unset IFS dl ad; eval last=$#
+  IFS=" "; overflow="$2"; set -- ${1}; unset IFS dl ad ll n0M; eval last=$#
   n=1; nl=1; for i in "$@"; do
     ad="${ad+$ad }$i";
+    #echo "---- adddec() - L12:"
+    #echo "-- to add = $dl | arg = $i"
+    #echo "----"
     #echo "- $i | $last | $nl"
+    # if no next item add to previous
     [ "$nl" -eq "$last" -a ! "$n" -eq 2 -a ! "$last" -eq 1 ] && {
       ldl="${dl##* }"; 
       a="$i"; b="$ldl"; : $((n+=1))
@@ -17,6 +21,7 @@ adddec() { # add all decimal points in $1 using math hacks
       export b
       export ll="1"
     }
+    # if only 1 item, return input
     [ "$last" -eq 1 ] && {
       dl="$i"; unset whn
       break
@@ -28,66 +33,80 @@ adddec() { # add all decimal points in $1 using math hacks
       # ML is 11 unless whn is set
       [ "$overflow" ] && { 
         ML=12
-      } || ML=11
+      }
 
-      export ML
-
-      until [ "${#a}" -le $ML ]; do # force shorten to 11 charecters to prevent issues
+      until [ "${#a}" -le ${ML:-11} ]; do # force shorten to 11 charecters to prevent issues
         a="${a%?}"
       done # the expected length is 11 - this is useful for calculations of if we've increased past 0
-      until [ "${#b}" -le $ML ]; do
+      until [ "${#b}" -le ${ML:-11} ]; do
         b="${b%?}"
       done
-      # echo "${#a} + ${#b}"
+
+      #echo "---- adddec() - L46:"
+      #echo "-- lengths: ${#a} ${#b} | max length = ${ML:-11} | overflow = $overflow"
+      #echo "----"
       na=0; until [ "${a#0}" = "$a" ]; do
-        a="${a#0}"; : $((na+=1))
+        a="${a#0}"
+        : $((na+=1))
       done
       nb=0; until [ "${b#0}" = "$b" ]; do
-        b="${b#0}"; : $((nb+=1))
+        b="${b#0}"
+        : $((nb+=1))
       done
+      
+      #if [ "${#a}" -lt "${#b}" ]; then
+      #  until [ "${#b}" -eq "${#a}" ]; do
+      #    b="${b%?}"
+      #  done
+      #elif [ "${#b}" -lt "${#a}" ]; then
+      #  until [ "${#a}" -eq "${#b}" ]; do
+      #    a="${a%?}"
+      #  done
+      #fi 
+
         if [ "$nb" -gt 0 -a "$na" -gt 0 ]; then
           [ "$na" -lt "$nb" ] && {
             n0M="$(nz $na)"
           } || n0M="$(nz $nb)"
         fi
+        #echo "-- $n0M | $nb/$na"
         n0a="$(nz $na)"
         n0b="$(nz $nb)"
         if [ "$((a+b))" -eq 0 ] || [ "$((a+b))" = "$b" ]; then
           a="${a%0}"; b="${b%0}"
           n0T="0"
         fi
-        [ "$((a+b))" -eq $b ] 2>/dev/null; if [ "$?" -eq 2 ]; then
-          a="${a%0}"; b="${b%0}"
-        fi
 
-        # OVERFLOW BUGS HAPPEN HERE (!!!)
-        # THIS ONLY WORKS IF A+B > 0.9
-
-        # -- the old version of this literally just did not work lol
+        #[ "$((a+b))" -eq "$b" ] 2>/dev/null; if [ "$?" -eq 2 ]; then
+        #  a="${a%0}"; b="${b%0}"
+        #fi
         
-        # this is somehow of no use ...
-        #echo "---- adddec() - L66:"
-        #echo "-- state = overflow handling | overflow state = $overflow | current whole number = $whn"
-        #echo "----"
-
         [ "$overflow" -a ! "$whn" ] && {
           ov=$((a+b)); movep=$((${#ov}-11))
           whn="$(movebin $ov $movep)"; whn="${whn%%.**}"
           export whn
         }
-        
-        # [ "$whn" -a "$overflow" ] && {
-        #  ov=$((a+b)); movep=$((${#ov}-11)) 
-        #  nwhn="$(movebin $ov $movep)"; nwhn="${nwhn%%.**}"
-        #  whn="$((whn+nwhn))"
-        # } # what does the above even do ???
-
-        #echo "---- adddec - L84:"
-        #echo "-- overflow decimal = $ov | move ammount = $movep | moved = $(movebin $ov $movep)"
+        #echo "---- adddec() - L82:"
+        #echo "-- lengths: ${#a} ${#b} | max length = ${ML:-11} | overflow = $overflow"
         #echo "----"
+        #[ ! "${#a}" -eq "${#b}" -a ! "$n0M" ] && { echo "$a and $b are NOT same length -- failing"; exit 1; }
+        # run ER check; if not same length result 100% going to be wrong
+        # $n0M could contain a removed 0; only fail if unset
 
+
+        #echo "---- adddec() - L97:"
+        #printf '-- %s + %s' "$a" "$b"
         ovt=$((a+b))
+        #printf ' = %s\n' "$n0M$ovt$n0T"
+        #echo "----" 
         [ "${#ovt}" -gt 11 ] && ovt="${ovt#?}" # shorten the result if an overflow is detected
+        #echo "---- adddec() - L103:"
+        #echo "-- length = $last | to add = ${dl:-$i} | last n = $ll"
+        #echo "----"
+        # if $ll is set and $last is not 3, unset ll
+        [ "$ll" ] && {
+          [ ! "$last" -eq 3 ] && unset ll
+        }
 
         [ ! "$ll" ] && {
           dl="${dl+$dl }$n0M$ovt$n0T"
@@ -98,11 +117,19 @@ adddec() { # add all decimal points in $1 using math hacks
     }
     : $((n+=1)); : $((nl+=1))
   done
-  echo "---- adddec():"
-  echo "-- to add = $dl | number of items = $last | overflow = ${whn:-NO OVERFLOW}"
-  echo "----"
+  
+  #echo "---- adddec() - L105:"
+  #echo "-- number of items = $last | overflow = ${whn:-NO OVERFLOW}"
+  #echo "----"
+  
   export dl whn
+  #echo "---- adddec() - L91:"
+  #echo "-- items = ${last} | ${#dl} - $dl"
+  #echo "----"
   unset ad; IFS=" "; [ "$dl" -a ! "$last" -eq 1 ] && until [ ${#dl} -le 11 ]; do 
+    #echo "---- adddec() - L95:"
+    #echo "-- to add = $dl | state = recursion"
+    #echo "----"
     adddec "$dl" # "${overflow}"
   done
   [ "$last" -eq 1 -a ${#dl} -gt 11 ] && {
@@ -110,5 +137,8 @@ adddec() { # add all decimal points in $1 using math hacks
       dl="${dl%0}"
     done
   }
+  #echo "---- adddec() - L105:"
+  #echo "-- result = $dl"
+  #echo "----"
   unset overflow
 }

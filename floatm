@@ -60,7 +60,7 @@ u="1" # hidden bit is always 1 unless otherwise stated
 #conbind "$1"
 #condec "$1"
 conbinF "$1"
-echo "--" 
+#echo "--" 
 condecF "${sbit} ${ad} ${mant}"
 #condecF "$@"
 #adddec "$@"

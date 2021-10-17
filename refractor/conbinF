@@ -40,7 +40,7 @@ conbinF() { # convert $1 to binary with float point (if $1 has .)
     fn="${fn}0"
   done # pad if too short
   mant="${fn##*.}"
-  echo "${sbit} ${ad} ${mant}" 
+  #echo "${sbit} ${ad} ${mant}" 
   export sbit ad mant
   # $u is hidden bit
 }
