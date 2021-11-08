@@ -1,4 +1,10 @@
 ---
+# Status
+-- this is currently dead
+-- maybe I'll work on it again later
+-- but it half works now; which proves my point
+-- eitherway my main focus is the mia roguelike and Nicole
+----
 # Purpose
 -- The purpose of this script and the pain I have endured creating it are to make bc redundant within POSIX sh
 -- The one thing bc can do that POSIX sh arithmetic cannot is float math
