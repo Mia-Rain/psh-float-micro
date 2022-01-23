@@ -1,9 +1,7 @@
 ---
 # Status
--- this is currently dead
--- maybe I'll work on it again later
--- but it half works now; which proves my point
--- eitherway my main focus is the mia roguelike and Nicole
+-- this was simply overkill
+-- will be superceded by psh-fractional
 ----
 # Purpose
 -- The purpose of this script and the pain I have endured creating it are to make bc redundant within POSIX sh
