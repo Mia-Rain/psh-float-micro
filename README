@@ -2,6 +2,7 @@
 # Status
 -- this was simply overkill
 -- will be superceded by psh-fractional
+---- https://dicksdeathabove.xyz/~mia/psh-fractional
 ----
 # Purpose
 -- The purpose of this script and the pain I have endured creating it are to make bc redundant within POSIX sh
